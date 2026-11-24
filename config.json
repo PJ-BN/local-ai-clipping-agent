@@ -1,0 +1,38 @@
+{
+  "active_campaign": "gaming_highlights",
+  "campaigns": {
+    "gaming_highlights": {
+      "campaign_name": "gaming_highlights",
+      "min_duration_sec": 20,
+      "max_duration_sec": 55,
+      "num_clips": 5,
+      "required_hashtags": ["#gaming", "#clips", "#viral", "#shorts", "#fyp"],
+      "prohibited_words": ["sponsor", "ad", "patreon", "twitch.tv", "use code"],
+      "watermark_path": "campaigns/logo.png",
+      "watermark_position": "top_right",
+      "auto_upload_youtube_draft": false
+    },
+    "podcast_clips": {
+      "campaign_name": "podcast_clips",
+      "min_duration_sec": 25,
+      "max_duration_sec": 50,
+      "num_clips": 3,
+      "required_hashtags": ["#podcast", "#interview", "#inspiration", "#shorts"],
+      "prohibited_words": ["sponsor", "merch", "ad", "patreon"],
+      "watermark_path": "campaigns/logo.png",
+      "watermark_position": "bottom_right",
+      "auto_upload_youtube_draft": false
+    },
+    "test_campaign": {
+      "campaign_name": "test_campaign",
+      "min_duration_sec": 10,
+      "max_duration_sec": 27,
+      "num_clips": 1,
+      "required_hashtags": ["#clipping", "#viraltest", "#shorts"],
+      "prohibited_words": ["prohibited_test_word"],
+      "watermark_path": "campaigns/logo.png",
+      "watermark_position": "top_right",
+      "auto_upload_youtube_draft": false
+    }
+  }
+}
