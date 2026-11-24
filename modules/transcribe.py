@@ -7,8 +7,48 @@ Includes offline-first loading, auto-mirror support, and automatic CUDA-to-CPU f
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Optional
+
+
+def setup_cuda_dlls():
+    """
+    On Windows, Python 3.8+ restricts automatic DLL resolution.
+    Registers pip-installed nvidia CUDA 12 and cuDNN library directories
+    into Windows DLL search path so ctranslate2 can natively use the GPU.
+    """
+    if os.name != "nt":
+        return
+
+    # Check site-packages/nvidia folders
+    site_packages = Path(sys.executable).parent / "Lib" / "site-packages"
+    nvidia_dir = site_packages / "nvidia"
+    if nvidia_dir.exists():
+        for sub in nvidia_dir.iterdir():
+            for dname in ("bin", "lib"):
+                dll_dir = sub / dname
+                if dll_dir.is_dir():
+                    try:
+                        os.add_dll_directory(str(dll_dir))
+                    except Exception:
+                        pass
+                    os.environ["PATH"] = f"{dll_dir};{os.environ.get('PATH', '')}"
+
+    # Check system CUDA_PATH if present
+    cuda_path = os.environ.get("CUDA_PATH")
+    if cuda_path:
+        cuda_bin = Path(cuda_path) / "bin"
+        if cuda_bin.is_dir():
+            try:
+                os.add_dll_directory(str(cuda_bin))
+            except Exception:
+                pass
+            os.environ["PATH"] = f"{cuda_bin};{os.environ.get('PATH', '')}"
+
+
+# Automatically register CUDA DLL paths on module load
+setup_cuda_dlls()
 
 import ctranslate2
 
