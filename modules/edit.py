@@ -185,7 +185,11 @@ def edit_clip(
 
     watermark_path = campaign_rules.get("watermark_path")
     watermark_pos = campaign_rules.get("watermark_position", "top_right")
-    has_watermark = watermark_path and Path(watermark_path).exists()
+    has_watermark = (
+        bool(watermark_path)
+        and str(watermark_path).strip().lower() not in ("none", "null", "")
+        and Path(watermark_path).exists()
+    )
 
     # Build Filtergraph:
     # 1) Crop to 9:16 aspect ratio: crop=ih*9/16:ih

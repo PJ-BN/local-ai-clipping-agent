@@ -129,6 +129,11 @@ def main():
         action="store_true",
         help="Clean up temporary files in workspace/ after processing completes.",
     )
+    parser.add_argument(
+        "--no-watermark",
+        action="store_true",
+        help="Disable watermark logo overlay even if specified in config.json.",
+    )
 
     args = parser.parse_args()
 
@@ -140,6 +145,8 @@ def main():
     print("STEP 0: LOADING CONFIGURATION")
     print("=" * 70)
     campaign_rules = load_campaign_config(args.config, args.campaign)
+    if args.no_watermark:
+        campaign_rules["watermark_path"] = None
     camp_name = campaign_rules.get("campaign_name", "default")
     print(f"[+] Active Campaign: '{camp_name}'")
     print(f"    - Target clips: {campaign_rules.get('num_clips', 5)}")
