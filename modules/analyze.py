@@ -79,6 +79,20 @@ def extract_json_from_text(text: str) -> Optional[List[Dict[str, Any]]]:
     return None
 
 
+def format_segments_compact(segments: List[Dict[str, Any]]) -> str:
+    """
+    Formats transcript segments into a token-efficient timestamped text format:
+    [start_s - end_s] text
+    """
+    lines = []
+    for s in segments:
+        start = float(s.get("start", 0.0))
+        end = float(s.get("end", 0.0))
+        text = str(s.get("text", "")).strip()
+        lines.append(f"[{start:.2f}s - {end:.2f}s] {text}")
+    return "\n".join(lines)
+
+
 def construct_prompt(
     segments: List[Dict[str, Any]],
     campaign_rules: Dict[str, Any],
@@ -91,7 +105,7 @@ def construct_prompt(
     max_dur = campaign_rules.get("max_duration_sec", 55)
     prohibited_words = campaign_rules.get("prohibited_words", [])
 
-    transcript_snippet = json.dumps(segments, ensure_ascii=False)
+    transcript_snippet = format_segments_compact(segments)
 
     prohibited_clause = ""
     if prohibited_words:
@@ -235,14 +249,26 @@ def analyze_transcript(
     prompt = construct_prompt(segments, campaign_rules)
     agy_bin = get_agy_binary()
 
-    print(f"[*] Calling Antigravity CLI ({agy_bin} -p) in headless mode for AI hook selection...")
+    print(f"[*] Calling Antigravity CLI ({agy_bin}) via streaming stdin for AI hook selection...")
     res = subprocess.run(
-        [agy_bin, "-p", prompt],
+        [agy_bin],
+        input=prompt,
         capture_output=True,
         text=True,
         encoding="utf-8",
-        stdin=subprocess.DEVNULL,
     )
+
+    if res.returncode != 0:
+        # Fallback to -p if stdin fails for any reason and prompt is short enough
+        if len(prompt) < 30000:
+            print("[!] Warning: stdin invocation failed, falling back to -p...")
+            res = subprocess.run(
+                [agy_bin, "-p", prompt],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                stdin=subprocess.DEVNULL,
+            )
 
     if res.returncode != 0:
         raise RuntimeError(f"agy execution failed (code {res.returncode}):\n{res.stderr}")
@@ -257,11 +283,11 @@ def analyze_transcript(
             f"Convert the following response into a clean, raw JSON array of objects without any markdown, code blocks, or explanations:\n\n{raw_output}"
         )
         retry_res = subprocess.run(
-            [agy_bin, "-p", repair_prompt],
+            [agy_bin],
+            input=repair_prompt,
             capture_output=True,
             text=True,
             encoding="utf-8",
-            stdin=subprocess.DEVNULL,
         )
         if retry_res.returncode == 0:
             parsed_clips = extract_json_from_text(retry_res.stdout.strip())
