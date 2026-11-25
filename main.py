@@ -134,6 +134,16 @@ def main():
         action="store_true",
         help="Disable watermark logo overlay even if specified in config.json.",
     )
+    parser.add_argument(
+        "--cookies-from-browser",
+        default=None,
+        help="Browser to extract YouTube cookies from ('chrome', 'edge', 'firefox', 'brave', 'opera'). Resolves 'Sign in to confirm you're not a bot'.",
+    )
+    parser.add_argument(
+        "--cookies",
+        default=None,
+        help="Path to a cookies.txt file for authenticated YouTube downloads.",
+    )
 
     args = parser.parse_args()
 
@@ -163,7 +173,14 @@ def main():
     print("STEP 1: MEDIA INGEST & AUDIO EXTRACTION")
     print("=" * 70)
     t0 = time.time()
-    raw_video_path, audio_wav_path = ingest(args.input, workspace_dir=workspace_dir)
+    cookies_browser = args.cookies_from_browser or campaign_rules.get("cookies_from_browser")
+    cookies_file = args.cookies or campaign_rules.get("cookies_file")
+    raw_video_path, audio_wav_path = ingest(
+        args.input,
+        workspace_dir=workspace_dir,
+        cookies_from_browser=cookies_browser,
+        cookies_file=cookies_file,
+    )
     print(f"[+] Ingest completed in {time.time() - t0:.1f}s")
     print(f"    - Raw Video: {raw_video_path}")
     print(f"    - Audio WAV: {audio_wav_path}")

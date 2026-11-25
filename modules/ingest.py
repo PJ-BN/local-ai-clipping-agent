@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional, Tuple
 from urllib.parse import urlparse
 
 import yt_dlp
@@ -47,10 +48,16 @@ def is_url(source: str) -> bool:
         return False
 
 
-def download_video(url: str, output_path: str) -> str:
+def download_video(
+    url: str,
+    output_path: str,
+    cookies_from_browser: Optional[str] = None,
+    cookies_file: Optional[str] = None,
+) -> str:
     """
     Downloads the best video+audio up to 1080p using yt-dlp.
-    Includes anti-403 player client configuration and chunked downloads.
+    Includes anti-403 player client configuration, chunked downloads,
+    and optional browser cookie authentication.
     """
     out_dir = Path(output_path).parent
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -83,9 +90,29 @@ def download_video(url: str, output_path: str) -> str:
     if Path(node_bin).exists():
         ydl_opts["js_runtimes"] = {"node": {"path": str(node_bin)}}
 
+    if cookies_from_browser:
+        print(f"[*] Using session cookies from browser '{cookies_from_browser}' for YouTube authentication...")
+        ydl_opts["cookiesfrombrowser"] = (cookies_from_browser,)
+    elif cookies_file and Path(cookies_file).exists():
+        print(f"[*] Using cookie file '{cookies_file}' for YouTube authentication...")
+        ydl_opts["cookiefile"] = str(cookies_file)
+
     print(f"[*] Downloading stream/video via yt-dlp: {url}")
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except yt_dlp.utils.DownloadError as e:
+        err_msg = str(e)
+        if "confirm you're not a bot" in err_msg.lower() or "sign in" in err_msg.lower():
+            raise RuntimeError(
+                f"\n[!] YouTube Bot Challenge Detected: YouTube is requiring sign-in confirmation for this video.\n"
+                f"    To resolve this immediately, pass your signed-in browser session:\n"
+                f"    --> python main.py --input \"{url}\" --cookies-from-browser chrome\n"
+                f"    (or replace 'chrome' with 'edge', 'firefox', 'brave', or 'opera')\n"
+                f"    Alternatively, download the video locally and run:\n"
+                f"    --> python main.py --input \"path/to/video.mp4\"\n"
+            ) from e
+        raise e
 
     expected_mp4 = Path(f"{base_template}.mp4")
     if expected_mp4.exists():
@@ -142,13 +169,20 @@ def extract_audio_wav(video_path: str, audio_path: str) -> str:
     return audio_path
 
 
-def ingest(input_source: str, workspace_dir: str = "workspace") -> tuple[str, str]:
+def ingest(
+    input_source: str,
+    workspace_dir: str = "workspace",
+    cookies_from_browser: Optional[str] = None,
+    cookies_file: Optional[str] = None,
+) -> tuple[str, str]:
     """
     Orchestrates ingestion of video and extraction of audio.
 
     Args:
         input_source: URL or local file path
         workspace_dir: Directory where temporary media files are stored
+        cookies_from_browser: Browser name for yt-dlp cookie authentication ('chrome', 'edge', etc.)
+        cookies_file: Path to a cookies.txt file
 
     Returns:
         tuple (raw_video_path, audio_wav_path)
@@ -160,7 +194,12 @@ def ingest(input_source: str, workspace_dir: str = "workspace") -> tuple[str, st
     target_audio_path = str(ws / "audio.wav")
 
     if is_url(input_source):
-        download_video(input_source, target_video_path)
+        download_video(
+            url=input_source,
+            output_path=target_video_path,
+            cookies_from_browser=cookies_from_browser,
+            cookies_file=cookies_file,
+        )
     else:
         local_file = Path(input_source)
         if not local_file.exists():
