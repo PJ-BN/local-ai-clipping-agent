@@ -50,13 +50,16 @@ def is_url(source: str) -> bool:
 def download_video(url: str, output_path: str) -> str:
     """
     Downloads the best video+audio up to 1080p using yt-dlp.
+    Includes anti-403 player client configuration and chunked downloads.
     """
     out_dir = Path(output_path).parent
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Temporary template without extension to avoid double extension issues
     base_template = str(out_dir / "raw_video")
     outtmpl = f"{base_template}.%(ext)s"
+
+    # Locate Node.js for yt-dlp JS runtime deciphering if available
+    node_bin = shutil.which("node") or r"C:\Program Files\nodejs\node.exe"
 
     ydl_opts = {
         "format": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
@@ -66,7 +69,19 @@ def download_video(url: str, output_path: str) -> str:
         "noplaylist": True,
         "quiet": False,
         "no_warnings": False,
+        "http_chunk_size": 10485760,  # 10MB chunking avoids YouTube 403 connection resets
+        "retries": 10,
+        "fragment_retries": 10,
+        "extractor_args": {
+            "youtube": {
+                # Rotate player clients to bypass YouTube SABR/403 blocks
+                "player_client": ["android", "ios", "mweb", "web"]
+            }
+        },
     }
+
+    if Path(node_bin).exists():
+        ydl_opts["js_runtimes"] = {"node": {"path": str(node_bin)}}
 
     print(f"[*] Downloading stream/video via yt-dlp: {url}")
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
